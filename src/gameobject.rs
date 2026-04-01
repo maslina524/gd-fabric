@@ -10,14 +10,14 @@ pub enum SingleColorType {
 }
 
 #[derive(Clone)]
-pub struct HsvValue {
+pub struct Hsv {
     h: f32,
     s: f32,
     v: f32,
     s_checked: bool,
     v_checked: bool,
 }
-impl HsvValue {
+impl Hsv {
     pub fn new() -> Self {
         Self {
             h: 0.,
@@ -103,8 +103,8 @@ pub struct GameObject {
     pub color_1: u16,
     pub color_2: u16,
     pub color_typ: SingleColorType,
-    pub hsv_1: HsvValue,
-    pub hsv_2: HsvValue,
+    pub hsv_1: Hsv,
+    pub hsv_2: Hsv,
     pub groups: HashSet<u16>,
     pub p_groups: HashSet<u16>,
     // TextObject
@@ -129,8 +129,8 @@ impl GameObject {
             color_1: 0, // 0 is default color
             color_2: 0,
             color_typ: SingleColorType::Default,
-            hsv_1: HsvValue::new(),
-            hsv_2: HsvValue::new(),
+            hsv_1: Hsv::new(),
+            hsv_2: Hsv::new(),
             groups: HashSet::new(),
             p_groups: HashSet::new(),
             // TExtObject
@@ -177,7 +177,7 @@ impl GameObject {
         ret.push_str(&prop!(self.color_2, 22, 0));
         ret.push_str(&prop!(self.color_typ.clone() as u8, 497, 0));
 
-        let hsv_def = HsvValue::new().serialize();
+        let hsv_def = Hsv::new().serialize();
         if self.hsv_1.serialize() != hsv_def { ret.push_str("41,1,"); }
         ret.push_str(&prop!(self.hsv_1.serialize(), 43, hsv_def));
         if self.hsv_2.serialize() != hsv_def { ret.push_str("42,1,"); }

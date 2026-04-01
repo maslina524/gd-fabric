@@ -1,14 +1,12 @@
 pub mod gameobject;
-pub use gameobject::{GameObject, TextGameObject};
+pub use gameobject::*;
 
 pub mod editor;
-pub use editor::{Editor};
+pub use editor::*;
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        Editor, GameObject, TextGameObject, gameobject::Point
-    };
+    use crate::*;
 
     #[test]
     fn add_objects() {

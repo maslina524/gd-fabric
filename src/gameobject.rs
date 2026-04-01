@@ -1,4 +1,5 @@
 use core::fmt;
+use std::collections::HashSet;
 use base64::{Engine as _, engine::general_purpose};
 
 #[derive(Clone)]
@@ -29,6 +30,18 @@ impl HsvValue {
  
     pub fn serialize(&self) -> String {
         format!("{}a{}a{}a{}a{}", self.h, self.s, self.v, self.s_checked as u8, self.v_checked as u8)
+    }
+}
+
+#[derive(Clone)]
+pub struct Point {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Point {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
     }
 }
 
@@ -78,8 +91,7 @@ pub trait GameObjectTrait {
 pub struct GameObject {
     // Base
     pub id: u16,
-    pub pos_x: f32,
-    pub pos_y: f32,
+    pub pos: Point,
     pub rotation: f32,
     pub flip_x: bool,
     pub flip_y: bool,
@@ -93,6 +105,8 @@ pub struct GameObject {
     pub color_typ: SingleColorType,
     pub hsv_1: HsvValue,
     pub hsv_2: HsvValue,
+    pub groups: HashSet<u16>,
+    pub p_groups: HashSet<u16>,
     // TextObject
     pub text: String,
     pub kerning: i32,
@@ -101,9 +115,9 @@ pub struct GameObject {
 impl GameObject {
     pub fn new() -> Self {
         Self {
+            // Base
             id: 1,
-            pos_x: 15.,
-            pos_y: 15.,
+            pos: Point { x: 15., y: 15. },
             rotation: 0.,
             flip_x: false,
             flip_y: false,
@@ -117,9 +131,19 @@ impl GameObject {
             color_typ: SingleColorType::Default,
             hsv_1: HsvValue::new(),
             hsv_2: HsvValue::new(),
+            groups: HashSet::new(),
+            p_groups: HashSet::new(),
+            // TExtObject
             text: String::new(),
             kerning: 0,
         }
+    }
+
+    pub fn from(id: u16, pos: Point) -> Self {
+        let mut ret = Self::new();
+        ret.id = id;
+        ret.pos = pos;
+        ret
     }
 
     /// Serializes a GameObject (save string)
@@ -139,7 +163,8 @@ impl GameObject {
     pub fn serialize(&self) -> String {
         let mut ret = String::new();
 
-        ret.push_str(format!("1,{},2,{},3,{},", self.id, self.pos_x, self.pos_y).as_str());
+        // Base
+        ret.push_str(format!("1,{},2,{},3,{},", self.id, self.pos.x, self.pos.y).as_str());
         ret.push_str(&prop!(self.rotation, 6, 0.));
         ret.push_str(&prop!(bool self.flip_x, 4, false));
         ret.push_str(&prop!(bool self.flip_y, 5, false));
@@ -158,6 +183,28 @@ impl GameObject {
         if self.hsv_2.serialize() != hsv_def { ret.push_str("42,1,"); }
         ret.push_str(&prop!(self.hsv_2.serialize(), 44, hsv_def));
 
+        // GROUPS
+        let mut all_groups = self.groups.clone();
+        all_groups.extend(&self.p_groups);
+        
+        if !all_groups.is_empty() {
+            let all_groups_string = all_groups.iter()
+                .map(|n| n.to_string())
+                .collect::<Vec<String>>()
+                .join(".");
+            ret.push_str(format!("57,{all_groups_string},").as_str());
+        }
+
+        // PARENT GROUPS
+        if !self.p_groups.is_empty() {
+            let p_groups_string = self.p_groups.iter()
+                .map(|n| n.to_string())
+                .collect::<Vec<String>>()
+                .join(".");
+            ret.push_str(format!("274,{p_groups_string},").as_str());
+        }
+
+        // TextObject
         let b64 = &prop!(general_purpose::STANDARD.encode(&self.text), 31, String::new());
         ret.push_str(b64.as_str());
         ret.push_str(&prop!(self.kerning, 488, 0));

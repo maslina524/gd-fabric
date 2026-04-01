@@ -42,6 +42,8 @@ struct Response {
 pub struct Editor {
     ws_server: Option<WebSocket<MaybeTlsStream<TcpStream>>>,
     objs: Vec<GameObject>,
+    pub add_debug_group: bool,
+    pub clear_debug_objs: bool,
 }
 
 impl Editor {
@@ -52,12 +54,20 @@ impl Editor {
         Ok(Self {
             ws_server: Some(socket),
             objs: vec![],
+            add_debug_group: true,
+            clear_debug_objs: true,
         })
     }
 
     pub fn add_objects(&mut self, objs: Vec<GameObject>) {
         for obj in objs {
-            self.objs.push(obj.clone());
+            if self.add_debug_group {
+                let mut ret = obj.clone();
+                ret.groups.insert(9999);
+                self.objs.push(ret);
+            } else {
+                self.objs.push(obj.clone());
+            }
         }
     }
 
@@ -81,8 +91,29 @@ impl Editor {
         }
         ret
     }
+    
+    pub fn remove_objs(&mut self, group: u16) -> Result<(), LiveEditorError> {
+        let obj = json!({
+            "action": "REMOVE_OBJECTS",
+            "group": group
+        });
+
+        let json = serde_json::to_string(&obj)?;
+        let response = self.send_and_receive(&json)?;
+
+        return match response.status {
+            ResponseStatus::Successful => Ok(()),
+            ResponseStatus::Error => Err(self.error_handler(response.message))
+        }
+    }
 
     pub fn save(&mut self) -> Result<(), LiveEditorError> {
+        if self.clear_debug_objs {
+            if let Err(e) = self.remove_objs(9999) {
+                return Err(e)
+            }
+        }
+        
         let obj = json!({
             "action": "ADD_OBJECTS",
             "objects": self.get_save_string()
@@ -91,9 +122,9 @@ impl Editor {
         let json = serde_json::to_string(&obj)?;
         let response = self.send_and_receive(&json)?;
         
-        match response.status {
-            ResponseStatus::Successful => return Ok(()),
-            ResponseStatus::Error => return Err(self.error_handler(response.message))
+        return match response.status {
+            ResponseStatus::Successful => Ok(()),
+            ResponseStatus::Error => Err(self.error_handler(response.message))
         }
     }
 
@@ -126,7 +157,7 @@ impl Editor {
                         value["response"]
                             .take()
                             .as_str()
-                            .ok_or_else(|| LiveEditorError::InvalidResponse("response is not a string".to_string()))?
+                            .unwrap_or_default()
                             .to_string()
                     },
                     ResponseStatus::Error => {

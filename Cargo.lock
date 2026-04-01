@@ -91,6 +91,7 @@ dependencies = [
  "base64",
  "serde",
  "serde_json",
+ "thiserror",
  "tungstenite",
  "url",
 ]

@@ -4,6 +4,9 @@ pub use gameobject::*;
 pub mod editor;
 pub use editor::*;
 
+pub mod gderror;
+pub use gderror::*;
+
 #[cfg(test)]
 mod tests {
     use crate::*;

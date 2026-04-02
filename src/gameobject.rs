@@ -3,6 +3,21 @@ use std::collections::HashSet;
 use base64::{Engine as _, engine::general_purpose};
 
 #[derive(Clone)]
+/// This enum is used to describe `color_typ` in `GameObject`
+/// 
+/// In Editor: Edit Object -> Settings
+/// 
+/// # Examples
+/// 
+/// ```
+/// use gdfabric::{GameObject, SingleColorType};
+/// 
+/// let mut obj = GameObject::new();
+/// obj.color_typ = SingleColorType::Base;
+/// 
+/// let serialized = obj.serialize();
+/// assert_eq!(serialized, "1,1,2,15,3,15,497,1;");
+/// ```
 pub enum SingleColorType {
     Default = 0,
     Base = 1,
@@ -10,14 +25,52 @@ pub enum SingleColorType {
 }
 
 #[derive(Clone)]
+/// This struct is used to describe `hsv_1` and `hsv_2` in `GameObject`.
+/// 
+/// # Examples
+/// 
+/// ```
+/// use gdfabric::{GameObject, Hsv};
+/// 
+/// let hsv = Hsv {
+///     h: 25.,
+///     s: 0.8,
+///     v: 1.5,
+///     s_checked: true,
+///     v_checked: false
+/// };
+/// let mut obj = GameObject::new();
+/// obj.hsv_1 = hsv;
+/// 
+/// let serialized = obj.serialize();
+/// assert_eq!(serialized, "1,1,2,15,3,15,41,1,43,25a0.8a1.5a1a0;");
+/// ```
 pub struct Hsv {
-    h: f32,
-    s: f32,
-    v: f32,
-    s_checked: bool,
-    v_checked: bool,
+    pub h: f32,
+    pub s: f32,
+    pub v: f32,
+    pub s_checked: bool,
+    pub v_checked: bool,
 }
 impl Hsv {
+    /// Creates a new default `Hsv` object
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use gdfabric::{Hsv};
+    /// 
+    /// let hsv = Hsv::new().serialize();
+    /// let hsv_def = Hsv {
+    ///     h: 0.,
+    ///     s: 1.,
+    ///     v: 1.,
+    ///     s_checked: false,
+    ///     v_checked: false
+    /// }.serialize();
+    /// 
+    /// assert_eq!(hsv, hsv_def);
+    /// ```
     pub fn new() -> Self {
         Self {
             h: 0.,
@@ -27,6 +80,25 @@ impl Hsv {
             v_checked: false
         }
     }
+
+    /// Creates a new `Hsv` object
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use gdfabric::{GameObject, Hsv};
+    /// 
+    /// let hsv = Hsv::from(25., 0.8, 1.5, true, false);
+    /// 
+    /// let mut obj = GameObject::new();
+    /// obj.hsv_1 = hsv;
+    /// 
+    /// let serialized = obj.serialize();
+    /// assert_eq!(serialized, "1,1,2,15,3,15,41,1,43,25a0.8a1.5a1a0;");
+    /// ```
+    pub fn from(h: f32, s: f32, v: f32, s_checked: bool, v_checked: bool) -> Self {
+        Self { h, s, v, s_checked, v_checked }
+    }
  
     pub fn serialize(&self) -> String {
         format!("{}a{}a{}a{}a{}", self.h, self.s, self.v, self.s_checked as u8, self.v_checked as u8)
@@ -34,12 +106,25 @@ impl Hsv {
 }
 
 #[derive(Clone)]
+/// A structure that stores the value of the `x` and `y` positions
+/// 
+/// Used to describe the position of the `GameObject`
 pub struct Point {
     pub x: f32,
     pub y: f32,
 }
 
 impl Point {
+    /// Creates a new `Point` object
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use gdfabric::{Point, GameObject};
+    /// 
+    /// let point = Point::new(45., 115.);
+    /// let obj = GameObject::from(211, point);
+    /// ```
     pub fn new(x: f32, y: f32) -> Self {
         Self { x, y }
     }
@@ -83,11 +168,11 @@ macro_rules! prop {
     };
 }
 
-pub trait GameObjectTrait {
-    fn serialize(&self) -> String;
-}
-
 #[derive(Clone)]
+/// Geometry Dash Game Object
+/// 
+/// Convenient creation and modification of an object with
+/// subsequent serialization to save it to the game editor
 pub struct GameObject {
     // Base
     pub id: u16,
@@ -113,6 +198,26 @@ pub struct GameObject {
 }
 
 impl GameObject {
+    /// Creates a new `GameObject` with standard settings
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use gdfabric::{Editor, GameObject};
+    /// 
+    /// # fn main() -> Result<(), gdfabric::Error> {
+    /// // Connect to the editor
+    /// let mut editor = Editor::load_ws()?;
+    /// 
+    /// // Create objects
+    /// let obj = GameObject::new();
+    /// 
+    /// // Add and save
+    /// editor.add_objects(vec![obj]);
+    /// editor.save()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new() -> Self {
         Self {
             // Base
@@ -139,6 +244,26 @@ impl GameObject {
         }
     }
 
+    /// Creates a new `GameObject` with id and position
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use gdfabric::{Editor, GameObject, Point};
+    /// 
+    /// # fn main() -> Result<(), gdfabric::Error> {
+    /// // Connect to the editor
+    /// let mut editor = Editor::load_ws()?;
+    /// 
+    /// // Create objects
+    /// let obj = GameObject::from(211, Point::new(115., 120.));
+    /// 
+    /// // Add and save
+    /// editor.add_objects(vec![obj]);
+    /// editor.save()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn from(id: u16, pos: Point) -> Self {
         let mut ret = Self::new();
         ret.id = id;
@@ -146,12 +271,13 @@ impl GameObject {
         ret
     }
 
-    /// Serializes a GameObject (save string)
+    /// Serializes a `GameObject` (save string)
     /// 
     /// # Examples
     /// 
     /// ```
-    /// # use crate::GameObject;
+    /// use gdfabric::GameObject;
+    /// 
     /// let obj = GameObject::new();
     /// let serialized = obj.serialize();
     /// assert_eq!(serialized, "1,1,2,15,3,15;");
@@ -215,9 +341,34 @@ impl GameObject {
     }
 }
 
+/// `TextGameObject` only serves to create a `GameObject`
+///
+/// # Examples
+/// 
+/// ```
+/// use gdfabric::{GameObject, TextGameObject};
+/// 
+/// // Example of using the `new` method.
+/// let text = TextGameObject::new().serialize();
+/// let mut obj = GameObject::new();
+/// obj.id = 914;
+/// 
+/// let serialized = obj.serialize();
+/// assert_eq!(text, serialized);
+/// ```
 pub struct TextGameObject {}
 
 impl TextGameObject {
+    /// Creates a new `GameObject` with id 914 (`TextGameObject`)
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use gdfabric::TextGameObject;
+    /// 
+    /// let obj = TextGameObject::new();
+    /// assert_eq!(obj.id, 914);
+    /// ```
     pub fn new() -> GameObject {
         let mut base = GameObject::new();
         base.id = 914;
@@ -225,6 +376,17 @@ impl TextGameObject {
         base
     }
 
+    /// Creates a new `GameObject` with id 914, text, and kerning
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use gdfabric::TextGameObject;
+    /// 
+    /// let obj = TextGameObject::from("Hello!".to_string(), 2);
+    /// let serialized = obj.serialize();
+    /// assert_eq!(serialized, "1,914,2,15,3,15,31,SGVsbG8h,488,2;".to_string());
+    /// ```
     pub fn from(text: String, kerning: i32) -> GameObject {
         let mut base = GameObject::new();
         base.id = 914;

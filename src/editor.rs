@@ -1,33 +1,8 @@
 use tungstenite::{connect, WebSocket, stream::MaybeTlsStream, Message};
-use std::net::TcpStream;
+use std::{net::TcpStream};
 use serde_json::json;
-use thiserror::Error;
 
-use crate::gameobject::{GameObject};
-
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("Serialization error: {0}")]
-    Serialization(#[from] serde_json::Error),
-
-    #[error("Std error: {0}")]
-    Sts(#[from] Box<dyn std::error::Error>),
-
-    #[error("Websocket error: {0}")]
-    WebSocket(#[from] tungstenite::Error),
-
-    #[error("Only editor action")]
-    OnlyEditorAction,
-
-    #[error("Invalid response: {0}")]
-    InvalidResponse(String),
-
-    #[error("Unknown err: {0}")]
-    Unknown(String),
-
-    #[error("Sending message err")]
-    SendingMessage(),
-}
+use crate::*;
 
 enum ResponseStatus {
     Error,
@@ -47,7 +22,7 @@ struct Response {
 /// # Example
 /// 
 /// ```
-/// use gdfabric::{Editor, GameObject, TextGameObject, Point};
+/// use gdfabric::{Editor, TextGameObject, Point};
 /// 
 /// # fn main() -> Result<(), gdfabric::Error> {
 /// // Connect to the editor
@@ -76,6 +51,25 @@ pub struct Editor {
 }
 
 impl Editor {
+    /// `gdfabric` connects to a local websocket server launched by the `WSLIveEditor` mod
+    /// 
+    /// Download WSLiveEditor in [Geode](https://geode-sdk.org/mods/iandyhd3.wsliveeditor) or from [GitHub](https://github.com/iAndyHD3/WSLiveEditor)
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// # #[test]
+    /// # fn test() {
+    /// use gdfabric::Editor;
+    /// 
+    /// let result = Editor::load_ws();
+    /// 
+    /// match result {
+    ///     Ok(_editor) => println!("Connection successful!"),
+    ///     Err(e) => panic!("{e}")
+    /// }
+    /// # }
+    /// ```
     pub fn load_ws() -> Result<Self, Error> {
         let ret = connect("ws://localhost:1313")?;
         let (socket, _response) = ret;
@@ -83,11 +77,30 @@ impl Editor {
         Ok(Self {
             ws_server: Some(socket),
             objs: vec![],
-            add_debug_group: true,
-            clear_debug_objs: true,
+            add_debug_group: false,
+            clear_debug_objs: false,
         })
     }
 
+    /// Adds objects to a `Editor` (struct)
+    /// 
+    /// It does not add objects directly to the game. To do this, you need to save the changes using the `save()` method!
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use gdfabric::{Editor, GameObject};
+    /// 
+    /// # fn main() -> Result<(), gdfabric::Error> {
+    /// let mut editor = Editor::load_ws()?;
+    /// 
+    /// let mut obj = GameObject::new();
+    /// editor.add_objects(vec![obj]);
+    /// 
+    /// editor.save()?; // !!!
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn add_objects(&mut self, objs: Vec<GameObject>) {
         for obj in objs {
             if self.add_debug_group {
@@ -99,7 +112,25 @@ impl Editor {
             }
         }
     }
-
+    /// Returns a level string
+    /// 
+    /// Look at how the [Level String](https://boomlings.dev/resources/client/level-components/level-string) and the [Level Start String](https://boomlings.dev/resources/client/level-components/level-start) work
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use gdfabric::Editor;
+    /// 
+    /// # fn main() -> Result<(), gdfabric::Error> {
+    /// let mut editor = Editor::load_ws()?;
+    /// 
+    /// match editor.level_string() {
+    ///     Ok(c) => assert_eq!(c.starts_with("kS38,"), true),
+    ///     Err(e) => panic!("unexpected err {e}"),
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn level_string(&mut self) -> Result<String, Error> {
         let obj = json!({
             "action": "GET_LEVEL_STRING",
@@ -121,6 +152,20 @@ impl Editor {
         ret
     }
     
+    /// Deletes all objects in the level with the specified group
+    /// 
+    /// # Examples
+    /// 
+    ///  ```
+    /// use gdfabric::Editor;
+    /// 
+    /// # fn main() -> Result<(), gdfabric::Error> {
+    /// let mut editor = Editor::load_ws()?;
+    /// 
+    /// editor.remove_objs(9999);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn remove_objs(&mut self, group: u16) -> Result<(), Error> {
         let obj = json!({
             "action": "REMOVE_OBJECTS",
@@ -136,6 +181,23 @@ impl Editor {
         }
     }
 
+    /// Adds all the objects you previously added via the `add_objects()` method to the level
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use gdfabric::{Editor, GameObject};
+    /// 
+    /// # fn main() -> Result<(), gdfabric::Error> {
+    /// let mut editor = Editor::load_ws()?;
+    /// 
+    /// let mut obj = GameObject::new();
+    /// editor.add_objects(vec![obj]);
+    /// 
+    /// editor.save()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn save(&mut self) -> Result<(), Error> {
         if self.clear_debug_objs {
             if let Err(e) = self.remove_objs(9999) {
